@@ -4,31 +4,32 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+	
 	"github.com/carlinhoshk/go-jwt/initializers"
 	"github.com/carlinhoshk/go-jwt/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
-
 func Signup(c *gin.Context) {
 	var body struct {
-		Email    string
+		Login    string
 		Password string
+		Role     models.UserRole
 	}
 
-	if c.Bind(&body) != nil{
+	if c.Bind(&body) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to read body",
 		})
 
 		return
 	}
-	
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), 10)
-	
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to hash password " + err.Error(),
@@ -37,7 +38,7 @@ func Signup(c *gin.Context) {
 		return
 	}
 
-	user := models.Usar{Email: body.Email,Password: string(hash)}
+	user := models.User{Login: body.Login, Password: string(hash), Role: body.Role }
 	result := initializers.DB.Create(&user)
 
 	if result.Error != nil {
@@ -52,35 +53,35 @@ func Signup(c *gin.Context) {
 		"message": "User created successfully",
 	})
 }
-func Login(c *gin.Context){
+func Login(c *gin.Context) {
 	var body struct {
-		Email    string
+		Login    string
 		Password string
 	}
 
-	if c.Bind(&body) != nil{
+	if c.Bind(&body) != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to read body",
 		})
-		return 	
+		return
 
 	}
-	var user models.Usar
+	var user models.User
 
-	initializers.DB.First(&user, "email = ?", body.Email)
+	initializers.DB.First(&user, "login = ?", body.Login)
 
-	if user.ID == 0 {
+	if user.ID == uuid.Nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid email or password",
+			"error": "Invalid login or password",
 		})
 		return
 	}
 
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password))
 
-	if err !=nil {
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid email or password",
+			"error": "Invalid login or password",
 		})
 		return
 	}
@@ -89,7 +90,7 @@ func Login(c *gin.Context){
 		"sub": user.ID,
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
-	
+
 	// Sign and get the complete encoded token as a string using the secret
 	tokenString, err := token.SignedString([]byte(os.Getenv("SECRET")))
 
@@ -101,13 +102,13 @@ func Login(c *gin.Context){
 	}
 
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("Authorization", tokenString, 3600 * 24 * 30, "", "", false, true)
+	c.SetCookie("Authorization", tokenString, 3600*24*30, "", "", false, true)
 	c.JSON(http.StatusOK, gin.H{
-        "token": tokenString,
-    })
+		"token": tokenString,
+	})
 }
 
-func Validate(c *gin.Context){
+func Validate(c *gin.Context) {
 
 	user, _ := c.Get("user")
 

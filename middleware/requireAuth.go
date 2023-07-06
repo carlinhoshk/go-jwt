@@ -10,6 +10,7 @@ import (
 	"github.com/carlinhoshk/go-jwt/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	//"github.com/google/uuid"
 )
 
 func RequireAuth(c *gin.Context) {
@@ -23,30 +24,41 @@ func RequireAuth(c *gin.Context) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 
  		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 	
 		return []byte(os.Getenv("SECRET")), nil
 	})
-	
+
+	if err != nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+	}
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		
-		if float64(time.Now().Unix()) > claims["exp"].(float64){
+		if float64(time.Now().Unix()) > claims["exp"].(float64) {
 			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
-
-		var user models.Usar
-		initializers.DB.First(&user, claims["sub"])
-
-		if user.ID == 0 {
+	
+		userID, ok := claims["sub"].(string)
+		if !ok {
 			c.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
-
+	
+		var user models.User
+		result := initializers.DB.First(&user, "id = ?", userID)
+		if result.Error != nil {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+	
 		c.Set("user", user)
 		c.Next()
 		
 	} else {
 		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
+	
 	
 }
