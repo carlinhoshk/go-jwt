@@ -1,10 +1,14 @@
 package controllers
 
 import (
+	"context"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
-	
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/carlinhoshk/go-jwt/initializers"
 	"github.com/carlinhoshk/go-jwt/models"
 	"github.com/gin-gonic/gin"
@@ -111,8 +115,80 @@ func Login(c *gin.Context) {
 func Validate(c *gin.Context) {
 
 	user, _ := c.Get("user")
+	
+	
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": user,
+		// "message": user.(models.User).Login,
 	})
+}
+
+
+func UploadFile(c *gin.Context) {
+
+	url := "https://blobtvcarlos.blob.core.windows.net/"
+	ctx := context.Background()
+
+	credential, err := azidentity.NewDefaultAzureCredential(nil)
+	if err!= nil {
+        panic(err)
+    }
+	
+
+	client, err := azblob.NewClient(url, credential, nil)
+	if err!= nil {
+        panic(err)
+    }
+
+	
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Abrir o arquivo para leitura
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer src.Close()
+
+	user, _ := c.Get("user")
+	username := user.(models.User).Login
+
+	// Obtém a data atual
+	currentTime := time.Now()
+	date := currentTime.Format("20060102")
+
+	blobName := username + "-" + date + "-" + file.Filename
+
+	// Nome do container
+	containerName := "container-tv-carlos"
+
+	// Lê o arquivo em binário
+	src, err = file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer src.Close()
+
+	// Converte o arquivo para um buffer de bytes
+	fileData, err := ioutil.ReadAll(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Upload do arquivo para o Azure Blob Storage
+	_, err = client.UploadBuffer(ctx, containerName, blobName, fileData, &azblob.UploadBufferOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Upload concluído com sucesso!"})
 }
