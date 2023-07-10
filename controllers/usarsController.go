@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -177,7 +177,7 @@ func UploadFile(c *gin.Context) {
 	defer src.Close()
 
 	// Converte o arquivo para um buffer de bytes
-	fileData, err := ioutil.ReadAll(src)
+	fileData, err := io.ReadAll(src)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
