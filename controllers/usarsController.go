@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -15,6 +16,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+
 )
 
 func Signup(c *gin.Context) {
@@ -163,7 +165,7 @@ func UploadFile(c *gin.Context) {
 	currentTime := time.Now()
 	date := currentTime.Format("20060102")
 
-	blobName := username + "-" + date + "-" + file.Filename
+	blobName := username + "-" + date + "-" + strings.ReplaceAll(file.Filename, " ", "")
 
 	// Nome do container
 	containerName := "container-tv-carlos"
@@ -190,5 +192,32 @@ func UploadFile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Upload concluído com sucesso!"})
+	blobURL := "https://blobtvcarlos.blob.core.windows.net/" + containerName + "/" + strings.ReplaceAll(blobName, " ", "")
+	
+	video := models.Video{
+		Name:       strings.ReplaceAll(file.Filename, " ", ""),
+		UploadDate: currentTime,
+		UserId:     user.(models.User).ID,
+		BlobName:   strings.ReplaceAll(blobName, " ", ""),
+		BlobUrl:    blobURL,
+	}
+	// Salvar o vídeo no banco de dados
+	err = saveVideoToDB(video)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Retornar a resposta de sucesso
+	c.JSON(http.StatusOK, gin.H{"message": "Upload do vídeo concluído com sucesso!" + blobURL})
+}
+func saveVideoToDB(video models.Video) error {
+    // Execute a operação de criação do vídeo no banco de dados
+    result := initializers.DB.Create(&video)
+    if result.Error != nil {
+        return result.Error
+    }
+
+    // A operação foi concluída com sucesso
+    return nil
 }
