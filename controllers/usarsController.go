@@ -7,17 +7,21 @@ import (
 	"os"
 	"time"
 	"strings"
+	
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/carlinhoshk/go-jwt/initializers"
 	"github.com/carlinhoshk/go-jwt/models"
+	"github.com/carlinhoshk/go-jwt/services"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	//"github.com/patrickmn/go-cache"
 
 )
+//var c = cache.New(5*time.Minute, 10*time.Minute)
 
 func Signup(c *gin.Context) {
 	var body struct {
@@ -129,7 +133,7 @@ func Validate(c *gin.Context) {
 
 func UploadFile(c *gin.Context) {
 
-	url := "https://blobtvcarlos.blob.core.windows.net/"
+	url := os.Getenv("AZURE_BLOB_URL")
 	ctx := context.Background()
 
 	credential, err := azidentity.NewDefaultAzureCredential(nil)
@@ -221,3 +225,48 @@ func saveVideoToDB(video models.Video) error {
     // A operação foi concluída com sucesso
     return nil
 }
+
+// função de controller para usar o método criado no videoService GetUserID e mostre no final o id
+func GetIde(c *gin.Context) {
+	// Obtenha o login do parâmetro da solicitação ou de qualquer outra fonte
+	login := c.Param("login")
+
+	// Chame a função GetUserID para obter o ID do usuário
+	userID, err := services.GetUserID(login)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Faça qualquer lógica adicional com o ID do usuário
+	// ...
+
+	// Retorne a resposta com o ID do usuário
+	c.JSON(http.StatusOK, gin.H{"userID": userID})
+}
+
+
+/*
+func DownloadFile(c *gin.Context) {
+	// Download blob file from azure and service cache 	
+}
+ */
+
+/*
+func DownloadBlob(c *gin.Context) {
+	lid := c.Param("id")
+
+	userID, err := uuid.Parse(lid)
+    if err != nil {
+        c.String(http.StatusBadRequest, "Invalid user ID")
+        return
+    }
+	videoData, err := services.GetVideoByUserID(userID)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Erro ao buscar vídeos")
+		return
+	}
+
+	c.JSON(http.StatusOK, videoData)
+}
+ */

@@ -19,3 +19,4 @@ func ConnectToDb() {
 		panic("fail to connect to db")
 	}
 }
+
