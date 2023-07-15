@@ -229,7 +229,7 @@ func saveVideoToDB(video models.Video) error {
 // função de controller para usar o método criado no videoService GetUserID e mostre no final o id
 func GetIde(c *gin.Context) {
 	// Obtenha o login do parâmetro da solicitação ou de qualquer outra fonte
-	login := c.Param("login")
+	login := c.Param("id")
 
 	// Chame a função GetUserID para obter o ID do usuário
 	userID, err := services.GetUserID(login)
@@ -245,6 +245,17 @@ func GetIde(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"userID": userID})
 }
 
+func GetVideosByUser(c *gin.Context) {
+	login := c.Param("login")
+
+	videos, err := services.GetVideosByUserLogin(login)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Erro ao buscar vídeos")
+		return
+	}
+
+	c.JSON(http.StatusOK, videos)
+}
 
 /*
 func DownloadFile(c *gin.Context) {

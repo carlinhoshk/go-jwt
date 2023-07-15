@@ -19,7 +19,9 @@ func main(){
 	r.POST("/signup", controllers.Signup)
 	r.POST("/login", controllers.Login)
 	r.GET("/validate", middleware.RequireAuth, controllers.Validate)
-	r.POST("/uploadfile",  middleware.RequireAuth, controllers.UploadFile)
+	r.POST("/uploadfile", middleware.RequireAuth, controllers.UploadFile)
+	r.GET("/users/:id", controllers.GetIde)
+	r.GET("/videos/:login", controllers.GetVideosByUser)
 	
 	r.Run()
 

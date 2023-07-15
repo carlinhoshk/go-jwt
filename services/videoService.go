@@ -29,23 +29,23 @@ func GetUserID(login string) (uuid.UUID, error) {
 }
 
 
-/*
-func getVideosByUserLogin(login string) ([]models.Video, error) {
+
+func GetVideosByUserLogin(login string) ([]models.Video, error) {
 	var user models.User
-	err := DB.Where("login = ?", login).First(&user).Error
+	err := initializers.DB.Where("login = ?", login).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
 
 	var videos []models.Video
-	err = DB.Where("user_id = ?", user.ID).Find(&videos).Error
+	err = initializers.DB.Where("user_id = ?", user.ID).Find(&videos).Error
 	if err != nil {
 		return nil, err
 	}
 
 	return videos, nil
 }
-*/
+
 /*
 type customError struct {
     msg string
