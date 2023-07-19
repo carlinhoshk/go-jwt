@@ -1,13 +1,16 @@
 package controllers
 
 import (
+	//"bytes"
 	"context"
+	"strconv"
+
 	"io"
 	"net/http"
 	"os"
-	"time"
+
 	"strings"
-	
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -19,8 +22,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	//"github.com/patrickmn/go-cache"
-
 )
+
 //var c = cache.New(5*time.Minute, 10*time.Minute)
 
 func Signup(c *gin.Context) {
@@ -133,6 +136,8 @@ func Validate(c *gin.Context) {
 
 func UploadFile(c *gin.Context) {
 
+	Name := c.PostForm("name")
+	
 	url := os.Getenv("AZURE_BLOB_URL")
 	ctx := context.Background()
 
@@ -199,10 +204,10 @@ func UploadFile(c *gin.Context) {
 	blobURL := "https://blobtvcarlos.blob.core.windows.net/" + containerName + "/" + strings.ReplaceAll(blobName, " ", "")
 	
 	video := models.Video{
-		Name:       strings.ReplaceAll(file.Filename, " ", ""),
+		Name:       Name,
 		UploadDate: currentTime,
 		UserId:     user.(models.User).ID,
-		BlobName:   strings.ReplaceAll(blobName, " ", ""),
+		BlobName:   blobName,                       // strings.ReplaceAll(blobName, " ", "")
 		BlobUrl:    blobURL,
 	}
 	// Salvar o vídeo no banco de dados
@@ -238,10 +243,6 @@ func GetIde(c *gin.Context) {
 		return
 	}
 
-	// Faça qualquer lógica adicional com o ID do usuário
-	// ...
-
-	// Retorne a resposta com o ID do usuário
 	c.JSON(http.StatusOK, gin.H{"userID": userID})
 }
 
@@ -258,26 +259,75 @@ func GetVideosByUser(c *gin.Context) {
 }
 
 /*
-func DownloadFile(c *gin.Context) {
-	// Download blob file from azure and service cache 	
-}
- */
+func GetVideoFromBlob(c *gin.Context) {
+    name := c.Param("name")
 
-/*
-func DownloadBlob(c *gin.Context) {
-	lid := c.Param("id")
-
-	userID, err := uuid.Parse(lid)
+    blobName, err := services.GetBlobUrlByName(name)
     if err != nil {
-        c.String(http.StatusBadRequest, "Invalid user ID")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return
     }
-	videoData, err := services.GetVideoByUserID(userID)
+
+    // Cria um buffer para armazenar o arquivo baixado
+    buffer := &bytes.Buffer{}
+    err = services.DownloadVideo(blobName, buffer)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    // Define o cabeçalho de resposta para o tipo de mídia correto (no exemplo, é um vídeo mp4)
+    c.Header("Content-Type", "video/mp4")
+
+    // Define o cabeçalho de resposta para indicar que o conteúdo está sendo transmitido
+    c.Header("Content-Disposition", "attachment; filename=video.mp4")
+
+    // Define o status HTTP para 200 OK
+    c.Status(http.StatusOK)
+
+    // Envia o conteúdo do buffer para o cliente
+    c.Writer.Write(buffer.Bytes())
+    c.Writer.Flush()
+}
+*/
+
+func ServeVideo(c *gin.Context) {
+	videoName := c.Param("name")
+
+	blobName, err := services.GetBlobNameByName(videoName)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Erro ao buscar vídeos")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, videoData)
+	err = services.DownloadVideo(blobName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	filePath := "/tmp/" + blobName
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao abrir o arquivo"})
+		return
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao obter informações do arquivo"})
+		return
+	}
+
+	c.Header("Content-Disposition", "attachment; filename="+blobName)
+	c.Header("Content-Type", "video/mp4")
+	c.Header("Content-Length", strconv.FormatInt(stat.Size(), 10))
+
+	_, err = io.Copy(c.Writer, file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao enviar o conteúdo do arquivo"})
+		return
+	}
 }
- */
